@@ -92,7 +92,7 @@
     #reel::-webkit-scrollbar { display: none; }
     #reel-hint { text-align: center; color: var(--muted); font-size: .8rem; padding: 30px 8px; width: 100%; }
 
-    .pick-slot { width: 94px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .pick-slot { width: 94px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; touch-action: none; }
     .flip-inner { width: 90px; height: 90px; position: relative; perspective: 700px; }
     .flip-card {
       position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s ease;
@@ -151,7 +151,7 @@
       width: 100%; height: 200px; display: flex; align-items: center; justify-content: center;
       background: var(--surface2); overflow: hidden; position: relative;
     }
-    .qcell-img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; }
+    .qcell-img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; touch-action: none; }
     .qcell-placeholder { font-size: .65rem; color: var(--muted); padding: 0 10px; text-align: center; }
 
     /* ===== Drag ghost ===== */
@@ -172,11 +172,23 @@
     #site-footer .sns-link:hover img { opacity: .75; }
 
     @media (max-width: 768px) {
-      .header-top h1 { font-size: .72rem; }
+      /* Reserve space on the left so the hamburger button (fixed, top:8px/left:12px,
+         40px wide, injected by sidebar.js) never overlaps the centered title. */
+      .header-top { padding-left: 56px; }
+      .header-top h1 { font-size: .68rem; }
+      .lang-switch { font-size: .68rem; gap: 5px; }
+
+      .pick-tab-bar { padding: 8px 10px; gap: 5px; }
+      .pick-btn { font-size: .62rem; padding: 10px 3px; }
+
+      #reel-hint { padding: 14px 8px; }
+      .pick-slot { width: 66px; }
+      .flip-inner { width: 63px; height: 63px; }
+
       #board-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); width: calc(100vw - 64px); }
       .qcell { width: auto; }
       .qcell-slot { width: 100%; height: auto; aspect-ratio: 1 / 1; }
-      #board-card { width: 100%; }
+      #board-card { width: 100%; padding: 14px; }
       .info-item-yoko { width: 100%; }
     }
   </style>
