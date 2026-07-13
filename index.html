@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>#ランダムピック配置シート - うーこの部屋</title>
+  <title>#ランダムピックシート - うーこの部屋</title>
 
   <link rel="icon" href="https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/00_common/favicon_io/favicon.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/00_common/favicon_io/apple-touch-icon.png">
@@ -70,10 +70,14 @@
     /* ===== Pick tabs ===== */
     .pick-tab-bar { display: flex; gap: 8px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
     .pick-btn {
-      flex: 1; background: var(--surface2); border: 2px solid transparent; border-radius: 8px;
+      flex: 1; border: 2px solid transparent; border-radius: 8px;
       padding: 12px 8px; font-family: var(--font); font-size: .85rem; font-weight: bold;
-      color: var(--text); cursor: pointer; transition: border-color .15s, opacity .15s;
+      color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.25); cursor: pointer;
+      transition: border-color .15s, opacity .15s;
     }
+    .pick-btn[data-mode="genshin"]  { background: #c9821a; }
+    .pick-btn[data-mode="starrail"] { background: #4a5fc1; }
+    .pick-btn[data-mode="both"]     { background: linear-gradient(90deg, #c9821a, #4a5fc1); }
     .pick-btn:hover:not(:disabled) { border-color: var(--accent); }
     .pick-btn:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -99,7 +103,7 @@
       position: absolute; inset: 0; backface-visibility: hidden; border-radius: 6px;
       display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    .flip-front { background: var(--surface2); border: 1px solid var(--border); }
+    .flip-front { background: #ffffff; }
     .flip-back { transform: rotateY(180deg); background: var(--surface2); }
     .flip-back img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
     .pick-slot:not(.placed) .flip-card.flipped { cursor: grab; }
@@ -111,12 +115,13 @@
     .pick-slot.placed .placed-ghost { display: flex; }
 
     /* ===== Board ===== */
-    #canvas-wrap { flex: 1; overflow: auto; background: var(--bg); padding: 4px 24px 24px; display: flex; justify-content: center; }
+    #canvas-wrap { flex: 1; overflow: auto; background: var(--bg); padding: 10px 24px 24px; display: flex; justify-content: center; }
     #board-card {
       background: var(--surface); border-radius: 10px; padding: 20px;
       display: flex; flex-direction: column; align-items: center; gap: 16px; width: max-content;
     }
-    #board-title { font-size: 1.15rem; font-weight: bold; }
+    #board-title { display: none; font-size: 1.15rem; font-weight: bold; }
+    #board-card.is-printing #board-title { display: block; }
 
     /* ===== Name input (matches reference checksheet's info-item-yoko) ===== */
     .info-item-yoko {
@@ -181,7 +186,7 @@
   <div id="top-fixed">
     <header id="main-header">
       <div class="header-top">
-        <h1 id="site-title">#ランダムピック配置シート</h1>
+        <h1 id="site-title">#ランダムピックシート</h1>
         <div class="lang-switch">
           <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
           <label><input type="radio" name="lang" value="en"> English</label>
@@ -208,7 +213,7 @@
 
   <div id="canvas-wrap">
     <div id="board-card">
-      <h2 id="board-title" data-i18n-key="boardTitle">配置シート</h2>
+      <h2 id="board-title" data-i18n-key="boardTitle">＃ランダムピックシート</h2>
       <div class="info-item-yoko">
         <div class="label" data-i18n-key="username">ユーザー名：</div>
         <input id="player-name" class="value-yoko" type="text" autocomplete="off">
@@ -253,18 +258,18 @@
     };
     const i18n = {
       ja: {
-        title: '#ランダムピック配置シート',
+        title: '#ランダムピックシート',
         pickGenshin: '原神キャラのみピック', pickStarrail: 'スタレキャラのみピック', pickBoth: '原神・スタレ両方からピック',
-        saveImage: 'Save Image', boardTitle: '配置シート',
+        saveImage: 'Save Image', boardTitle: '＃ランダムピックシート',
         readyMsg: 'ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)',
         dropHere: 'ここに配置', placedGhost: '配置済み',
         lockedMsg: '本日の抽選は終了しました。次回抽選可能: {time}',
         username: 'ユーザー名：', namePlaceholder: 'あなたの名前を書いてね！',
       },
       en: {
-        title: '#Random Pick Layout Sheet',
+        title: '#Random Pick Sheet',
         pickGenshin: 'Genshin Only', pickStarrail: 'Star Rail Only', pickBoth: 'Genshin & Star Rail',
-        saveImage: 'Save Image', boardTitle: 'Layout Sheet',
+        saveImage: 'Save Image', boardTitle: '#Random Pick Sheet',
         readyMsg: 'Press a button to randomly draw characters! (Once a day, resets 4:00 AM)',
         dropHere: 'Drop here', placedGhost: 'Placed',
         lockedMsg: "Today's draw is done. Next draw available: {time}",
@@ -590,6 +595,7 @@
     saveBtn.addEventListener('click', async () => {
       if (saveBtn.disabled) return;
       const boardCard = document.getElementById('board-card');
+      boardCard.classList.add('is-printing');
       await document.fonts.ready;
       try {
         const dpr = Math.max(window.devicePixelRatio || 1, 2);
@@ -610,6 +616,7 @@
         const a = document.createElement('a');
         a.download = `ランダムピック配置_${ts}.png`; a.href = cvs.toDataURL('image/png'); a.click();
       } catch (err) { alert('保存に失敗しました: ' + err.message); }
+      finally { boardCard.classList.remove('is-printing'); }
     });
 
     // ===== Init =====
