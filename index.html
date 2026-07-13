@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>#ランダムピック配置シート - うーこの部屋</title>
+
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/00_common/favicon_io/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/00_common/favicon_io/apple-touch-icon.png">
+
+  <style>
+    @font-face {
+      font-family: 'MihoyoZenZero';
+      src: url('font/mihoyo-zenzero.ttf') format('truetype');
+    }
+
+    :root {
+      --bg:      #f4f4f9;
+      --surface: #ffffff;
+      --surface2:#eeeeee;
+      --accent:  #ffcc00;
+      --text:    #333333;
+      --muted:   #888888;
+      --border:  #dddddd;
+      --font:    'MihoyoZenZero','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .header-top {
+      min-height: 56px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .header-top h1 { font-size: 1rem; font-weight: bold; color: var(--text); letter-spacing: .05em; }
+    .lang-switch {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      display: flex; gap: 8px; font-size: .8rem;
+    }
+    .lang-switch label { display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+    .header-save-row { text-align: center; padding: 6px 0 10px; }
+    #save-btn {
+      background: var(--accent); border: none; border-radius: 6px;
+      padding: 7px 20px; font-family: var(--font); font-size: .9rem; font-weight: bold;
+      cursor: pointer; color: var(--text); transition: opacity .15s;
+    }
+    #save-btn:hover:not(:disabled) { opacity: .8; }
+    #save-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ===== Pick tabs ===== */
+    .pick-tab-bar { display: flex; gap: 8px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .pick-btn {
+      flex: 1; background: var(--surface2); border: 2px solid transparent; border-radius: 8px;
+      padding: 12px 8px; font-family: var(--font); font-size: .85rem; font-weight: bold;
+      color: var(--text); cursor: pointer; transition: border-color .15s, opacity .15s;
+    }
+    .pick-btn:hover:not(:disabled) { border-color: var(--accent); }
+    .pick-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    #lock-message { text-align: center; font-size: .78rem; color: var(--muted); padding: 6px 12px; background: var(--surface); }
+
+    /* ===== Reel ===== */
+    #reel-wrap { padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    #reel {
+      display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 4px;
+      scrollbar-width: none; min-height: 112px;
+    }
+    #reel::-webkit-scrollbar { display: none; }
+    #reel-hint { text-align: center; color: var(--muted); font-size: .8rem; padding: 30px 8px; width: 100%; }
+
+    .pick-slot { width: 94px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .flip-inner { width: 90px; height: 90px; position: relative; perspective: 700px; }
+    .flip-card {
+      position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s ease;
+      border-radius: 6px;
+    }
+    .flip-card.flipped { transform: rotateY(180deg); }
+    .flip-face {
+      position: absolute; inset: 0; backface-visibility: hidden; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .flip-front { background: linear-gradient(135deg, var(--accent), #ffe9a3); font-size: 1.8rem; font-weight: bold; color: #fff; }
+    .flip-back { transform: rotateY(180deg); background: var(--surface2); }
+    .flip-back img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    .pick-slot-name {
+      font-size: .5rem; color: var(--muted); max-width: 84px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .pick-slot:not(.placed) .flip-card.flipped { cursor: grab; }
+    .placed-ghost {
+      display: none; position: absolute; inset: 0; border: 2px dashed var(--border); border-radius: 6px;
+      align-items: center; justify-content: center; font-size: .55rem; color: var(--muted); text-align: center; padding: 4px;
+    }
+    .pick-slot.placed .flip-inner > .flip-card { visibility: hidden; }
+    .pick-slot.placed .placed-ghost { display: flex; }
+    .pick-slot.placed .pick-slot-name { visibility: hidden; }
+
+    /* ===== Board ===== */
+    #canvas-wrap { flex: 1; overflow: auto; background: var(--bg); padding: 24px; display: flex; justify-content: center; }
+    #board-card {
+      background: var(--surface); border-radius: 10px; padding: 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px; width: max-content;
+    }
+    #board-title { font-size: 1.15rem; font-weight: bold; }
+    #board-grid { display: grid; grid-template-columns: repeat(3, 200px); grid-template-rows: repeat(3, 220px); gap: 14px; }
+    .qcell {
+      border: 2px solid var(--border); border-radius: 8px; background: var(--surface);
+      display: flex; flex-direction: column; align-items: center; padding: 8px; gap: 6px;
+      transition: border-color .15s, background .15s;
+    }
+    .qcell.drag-over { border-color: var(--accent); background: rgba(255,204,0,.08); }
+    .qcell-label {
+      font-size: .78rem; font-weight: bold; color: var(--text); text-align: center;
+      min-height: 2.1em; display: flex; align-items: center; justify-content: center;
+    }
+    .qcell-slot {
+      width: 140px; height: 140px; display: flex; align-items: center; justify-content: center;
+      background: var(--surface2); border-radius: 6px; overflow: hidden; position: relative;
+    }
+    .qcell-img { width: 100%; height: 100%; object-fit: cover; cursor: grab; }
+    .qcell-placeholder { font-size: .65rem; color: var(--muted); padding: 0 10px; text-align: center; }
+    .qcell-name {
+      font-size: .72rem; color: var(--text); text-align: center; max-width: 150px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.1em;
+    }
+
+    /* ===== Drag ghost ===== */
+    #drag-ghost { position: fixed; pointer-events: none; z-index: 9999; display: none; transform: translate(-28px,-28px); }
+    #drag-ghost img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 2px solid var(--accent); opacity: .85; display: block; }
+
+    #version-tag {
+      position: fixed; right: 8px; bottom: 6px; z-index: 999;
+      color: var(--muted); font-size: .68rem; opacity: .35; pointer-events: none; user-select: none;
+    }
+
+    @media (max-width: 768px) {
+      .header-top h1 { font-size: .72rem; }
+      #board-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); width: calc(100vw - 64px); }
+      .qcell-slot { width: 100%; height: auto; aspect-ratio: 1 / 1; }
+      #board-card { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header id="main-header">
+    <div class="header-top">
+      <h1 id="site-title">#ランダムピック配置シート</h1>
+      <div class="lang-switch">
+        <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
+        <label><input type="radio" name="lang" value="en"> English</label>
+      </div>
+    </div>
+    <div class="header-save-row">
+      <button id="save-btn" data-i18n-key="saveImage" disabled>Save Image</button>
+    </div>
+  </header>
+
+  <div class="pick-tab-bar">
+    <button class="pick-btn" data-mode="genshin"  data-i18n-key="pickGenshin">原神キャラのみピック</button>
+    <button class="pick-btn" data-mode="starrail" data-i18n-key="pickStarrail">スタレキャラのみピック</button>
+    <button class="pick-btn" data-mode="both"     data-i18n-key="pickBoth">原神・スタレ両方からピック</button>
+  </div>
+  <div id="lock-message"></div>
+
+  <div id="reel-wrap">
+    <div id="reel"></div>
+    <div id="reel-hint" data-i18n-key="readyMsg">ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)</div>
+  </div>
+
+  <div id="canvas-wrap">
+    <div id="board-card">
+      <h2 id="board-title" data-i18n-key="boardTitle">配置シート</h2>
+      <div id="board-grid"></div>
+    </div>
+  </div>
+
+  <div id="drag-ghost"><img id="drag-ghost-img" src="" alt=""></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script type="module">
+    import { genshinChars }  from 'https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/01_Genshin/chara_data/genshin_chars.js';
+    import { starrailChars } from 'https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/02_Starrail/chara_data/starrail_chars.js';
+
+    const GENSHIN_BASE  = 'https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/01_Genshin/chara_full/';
+    const STARRAIL_BASE = 'https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/02_Starrail/chara_full/';
+    const STORAGE_KEY = 'randomSelect_state_v1';
+
+    // ===== i18n =====
+    const QUESTIONS = {
+      ja: ['設問1','設問2','設問3','設問4','設問5','設問6','設問7','設問8','設問9'],
+      en: ['Question 1','Question 2','Question 3','Question 4','Question 5','Question 6','Question 7','Question 8','Question 9'],
+    };
+    const i18n = {
+      ja: {
+        title: '#ランダムピック配置シート',
+        pickGenshin: '原神キャラのみピック', pickStarrail: 'スタレキャラのみピック', pickBoth: '原神・スタレ両方からピック',
+        saveImage: 'Save Image', boardTitle: '配置シート',
+        readyMsg: 'ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)',
+        dropHere: 'ここに配置', placedGhost: '配置済み',
+        lockedMsg: '本日の抽選は終了しました。次回抽選可能: {time}',
+      },
+      en: {
+        title: '#Random Pick Layout Sheet',
+        pickGenshin: 'Genshin Only', pickStarrail: 'Star Rail Only', pickBoth: 'Genshin & Star Rail',
+        saveImage: 'Save Image', boardTitle: 'Layout Sheet',
+        readyMsg: 'Press a button to randomly draw characters! (Once a day, resets 4:00 AM)',
+        dropHere: 'Drop here', placedGhost: 'Placed',
+        lockedMsg: "Today's draw is done. Next draw available: {time}",
+      },
+    };
+    let currentLang = localStorage.getItem('lang') || 'ja';
+
+    function applyLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('lang', lang);
+      const d = i18n[lang] || i18n.ja;
+      document.getElementById('site-title').textContent = d.title;
+      document.querySelectorAll('[data-i18n-key]').forEach(el => {
+        const k = el.dataset.i18nKey;
+        if (d[k] != null) el.textContent = d[k];
+      });
+      document.querySelectorAll('.qcell-placeholder').forEach(el => el.textContent = d.dropHere);
+      document.querySelectorAll('.placed-ghost').forEach(el => el.textContent = d.placedGhost);
+      updateQuestionLabels();
+      updatePickUI();
+    }
+    document.querySelectorAll('input[name="lang"]').forEach(r => {
+      if (r.value === currentLang) r.checked = true;
+      r.addEventListener('change', e => applyLang(e.target.value));
+    });
+
+    // ===== Pool =====
+    function stripExt(f) { return f.replace(/\.\w+$/, ''); }
+    function genshinPool()  { return genshinChars.map(c  => ({ key: 'g:' + c.icon, src: GENSHIN_BASE  + c.icon, name: c.name || stripExt(c.icon) })); }
+    function starrailPool() { return starrailChars.map(c => ({ key: 's:' + c.icon, src: STARRAIL_BASE + c.icon, name: c.name || stripExt(c.icon) })); }
+    function buildPool(mode) {
+      if (mode === 'genshin')  return genshinPool();
+      if (mode === 'starrail') return starrailPool();
+      return [...genshinPool(), ...starrailPool()];
+    }
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ===== Daily lock (rolls over at 4:00 AM local time) =====
+    function getGameDayKey(d = new Date()) {
+      const shifted = new Date(d.getTime() - 4 * 60 * 60 * 1000);
+      const pad = n => String(n).padStart(2, '0');
+      return `${shifted.getFullYear()}${pad(shifted.getMonth() + 1)}${pad(shifted.getDate())}`;
+    }
+    function nextResetLabel() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(4, 0, 0, 0);
+      if (now.getHours() >= 4) next.setDate(next.getDate() + 1);
+      const pad = n => String(n).padStart(2, '0');
+      return `${next.getMonth() + 1}/${next.getDate()} ${pad(next.getHours())}:${pad(next.getMinutes())}`;
+    }
+
+    // ===== State =====
+    let picks = [];                       // [{key,src,name}] x9, index = home slot
+    let cellContent = Array(9).fill(null); // cellContent[cellIdx] = homeIdx | null
+    let slotLocation = Array(9).fill('reel'); // slotLocation[homeIdx] = 'reel' | cellIdx
+    let pickedDayKey = null;
+    let dragState = null;
+    let slotEls = [], cellEls = [];
+
+    const reelEl      = document.getElementById('reel');
+    const reelHintEl  = document.getElementById('reel-hint');
+    const boardGrid   = document.getElementById('board-grid');
+    const lockMsgEl   = document.getElementById('lock-message');
+    const saveBtn     = document.getElementById('save-btn');
+    const pickButtons = document.querySelectorAll('.pick-btn');
+    const dragGhost    = document.getElementById('drag-ghost');
+    const dragGhostImg = document.getElementById('drag-ghost-img');
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayKey: pickedDayKey, picks, cellContent, slotLocation }));
+    }
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+    }
+
+    // ===== Grid =====
+    function buildGridDOM() {
+      boardGrid.innerHTML = '';
+      cellEls = [];
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'qcell';
+        cell.dataset.idx = i;
+        cell.innerHTML = `
+          <div class="qcell-label"></div>
+          <div class="qcell-slot">
+            <img class="qcell-img" style="display:none" alt="">
+            <span class="qcell-placeholder"></span>
+          </div>
+          <div class="qcell-name"></div>
+        `;
+        boardGrid.appendChild(cell);
+        cellEls.push(cell);
+      }
+      updateQuestionLabels();
+      const d = i18n[currentLang] || i18n.ja;
+      cellEls.forEach(c => c.querySelector('.qcell-placeholder').textContent = d.dropHere);
+      updateAllCells();
+    }
+    function updateQuestionLabels() {
+      const list = QUESTIONS[currentLang] || QUESTIONS.ja;
+      cellEls.forEach((c, i) => { c.querySelector('.qcell-label').textContent = list[i]; });
+    }
+    function updateCell(i) {
+      const cell = cellEls[i];
+      const homeIdx = cellContent[i];
+      const img = cell.querySelector('.qcell-img');
+      const nameEl = cell.querySelector('.qcell-name');
+      const ph = cell.querySelector('.qcell-placeholder');
+      if (homeIdx != null) {
+        const c = picks[homeIdx];
+        img.src = c.src; img.alt = c.name; img.style.display = 'block';
+        ph.style.display = 'none';
+        nameEl.textContent = c.name;
+        cell.classList.add('filled');
+      } else {
+        img.style.display = 'none'; img.removeAttribute('src');
+        ph.style.display = 'block';
+        nameEl.textContent = '';
+        cell.classList.remove('filled');
+      }
+    }
+    function updateAllCells() { for (let i = 0; i < 9; i++) updateCell(i); }
+
+    // ===== Reel =====
+    function buildReelDOM(instant) {
+      reelEl.innerHTML = '';
+      slotEls = [];
+      if (picks.length !== 9) { reelHintEl.style.display = 'block'; return; }
+      reelHintEl.style.display = 'none';
+      picks.forEach((c, i) => {
+        const slot = document.createElement('div');
+        slot.className = 'pick-slot';
+        slot.dataset.idx = i;
+        slot.innerHTML = `
+          <div class="flip-inner">
+            <div class="flip-card${instant ? ' flipped' : ''}">
+              <div class="flip-face flip-front">？</div>
+              <div class="flip-face flip-back"><img src="${c.src}" alt="${c.name}"></div>
+            </div>
+            <div class="placed-ghost"></div>
+          </div>
+          <div class="pick-slot-name">${instant ? c.name : ''}</div>
+        `;
+        reelEl.appendChild(slot);
+        slotEls.push(slot);
+      });
+      const d = i18n[currentLang] || i18n.ja;
+      reelEl.querySelectorAll('.placed-ghost').forEach(el => el.textContent = d.placedGhost);
+      updateAllReelSlots();
+    }
+    function updateReelSlot(i) {
+      slotEls[i]?.classList.toggle('placed', slotLocation[i] !== 'reel');
+    }
+    function updateAllReelSlots() { for (let i = 0; i < 9; i++) updateReelSlot(i); }
+
+    async function revealAnimation() {
+      for (let i = 0; i < 9; i++) {
+        await delay(280);
+        const slot = slotEls[i];
+        if (!slot) continue;
+        slot.querySelector('.flip-card').classList.add('flipped');
+        slot.querySelector('.pick-slot-name').textContent = picks[i].name;
+      }
+    }
+
+    // ===== Pick lock UI =====
+    function isLockedToday() { return pickedDayKey === getGameDayKey(); }
+    function updatePickUI() {
+      const locked = isLockedToday();
+      pickButtons.forEach(b => b.disabled = locked);
+      const d = i18n[currentLang] || i18n.ja;
+      lockMsgEl.textContent = locked ? d.lockedMsg.replace('{time}', nextResetLabel()) : '';
+    }
+
+    function checkComplete() {
+      saveBtn.disabled = !cellContent.every(v => v != null);
+    }
+
+    // ===== Move / swap logic =====
+    function moveTo(sourceType, sourceId, targetType, targetId) {
+      const sourceHomeIdx = sourceType === 'reel' ? sourceId : cellContent[sourceId];
+      if (sourceHomeIdx == null) return;
+
+      if (targetType === 'reel') {
+        if (sourceType !== 'cell') return;
+        cellContent[sourceId] = null;
+        slotLocation[sourceHomeIdx] = 'reel';
+      } else {
+        if (sourceType === 'cell' && sourceId === targetId) return;
+        const occupantHomeIdx = cellContent[targetId];
+        cellContent[targetId] = sourceHomeIdx;
+        slotLocation[sourceHomeIdx] = targetId;
+        if (occupantHomeIdx != null) {
+          if (sourceType === 'cell') {
+            cellContent[sourceId] = occupantHomeIdx;
+            slotLocation[occupantHomeIdx] = sourceId;
+          } else {
+            slotLocation[occupantHomeIdx] = 'reel';
+          }
+        } else if (sourceType === 'cell') {
+          cellContent[sourceId] = null;
+        }
+      }
+      updateAllReelSlots();
+      updateAllCells();
+      checkComplete();
+      saveState();
+    }
+
+    // ===== Drag (pointer-based) =====
+    function startDrag(e, sourceType, sourceId, imgSrc) {
+      if (dragState) return;
+      e.preventDefault();
+      const sx = e.clientX, sy = e.clientY;
+      let started = false;
+      dragGhostImg.src = imgSrc;
+      dragState = { sourceType, sourceId };
+
+      const onMove = ev => {
+        ev.preventDefault();
+        if (!started) {
+          if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+          started = true;
+          dragGhost.style.display = 'block';
+        }
+        dragGhost.style.left = ev.clientX + 'px';
+        dragGhost.style.top  = ev.clientY + 'px';
+        document.querySelectorAll('.qcell.drag-over').forEach(c => c.classList.remove('drag-over'));
+        const overCell = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.qcell');
+        if (overCell) overCell.classList.add('drag-over');
+      };
+      const onUp = ev => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        dragGhost.style.display = 'none';
+        document.querySelectorAll('.qcell.drag-over').forEach(c => c.classList.remove('drag-over'));
+        if (started) {
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          const cellEl = el?.closest('.qcell');
+          const reelHit = el?.closest('#reel') || el?.closest('#reel-wrap');
+          if (cellEl) {
+            moveTo(sourceType, sourceId, 'cell', parseInt(cellEl.dataset.idx, 10));
+          } else if (reelHit) {
+            moveTo(sourceType, sourceId, 'reel', null);
+          }
+        }
+        dragState = null;
+      };
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onUp);
+    }
+
+    reelEl.addEventListener('pointerdown', e => {
+      if (dragState) return;
+      const slot = e.target.closest('.pick-slot');
+      if (!slot || slot.classList.contains('placed')) return;
+      const card = slot.querySelector('.flip-card');
+      if (!card.classList.contains('flipped')) return;
+      const idx = parseInt(slot.dataset.idx, 10);
+      startDrag(e, 'reel', idx, picks[idx].src);
+    });
+
+    boardGrid.addEventListener('pointerdown', e => {
+      if (dragState) return;
+      const cell = e.target.closest('.qcell.filled');
+      if (!cell) return;
+      const idx = parseInt(cell.dataset.idx, 10);
+      const homeIdx = cellContent[idx];
+      startDrag(e, 'cell', idx, picks[homeIdx].src);
+    });
+
+    // ===== Pick buttons =====
+    pickButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        const mode = btn.dataset.mode;
+        picks = shuffle(buildPool(mode)).slice(0, 9);
+        cellContent = Array(9).fill(null);
+        slotLocation = Array(9).fill('reel');
+        pickedDayKey = getGameDayKey();
+        saveState();
+        updatePickUI();
+        buildGridDOM();
+        checkComplete();
+        buildReelDOM(false);
+        revealAnimation();
+      });
+    });
+
+    // ===== Save image =====
+    (async () => {
+      try {
+        const resp = await fetch('font/mihoyo-zenzero.ttf');
+        const buf  = await resp.arrayBuffer();
+        const u8   = new Uint8Array(buf);
+        let bin = '', chunk = 8192;
+        for (let i = 0; i < u8.length; i += chunk)
+          bin += String.fromCharCode(...u8.subarray(i, Math.min(i + chunk, u8.length)));
+        const dataUrl = `data:font/truetype;base64,${btoa(bin)}`;
+        const s = document.createElement('style');
+        s.id = 'font-b64-inject';
+        s.textContent = `@font-face{font-family:'MihoyoZenZero';src:url('${dataUrl}')format('truetype');}`;
+        document.head.appendChild(s);
+      } catch (e) {}
+    })();
+
+    saveBtn.addEventListener('click', async () => {
+      if (saveBtn.disabled) return;
+      const boardCard = document.getElementById('board-card');
+      await document.fonts.ready;
+      try {
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
+        const fontStyleText = document.getElementById('font-b64-inject')?.textContent || '';
+        const cvs = await html2canvas(boardCard, {
+          useCORS: true, allowTaint: true, backgroundColor: '#ffffff', scale: dpr,
+          onclone: doc => {
+            if (fontStyleText) {
+              const s = doc.createElement('style');
+              s.textContent = fontStyleText;
+              doc.head.appendChild(s);
+            }
+          },
+        });
+        const now = new Date(), padN = n => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}${padN(now.getMonth()+1)}${padN(now.getDate())}_`
+                 + `${padN(now.getHours())}${padN(now.getMinutes())}${padN(now.getSeconds())}`;
+        const a = document.createElement('a');
+        a.download = `ランダムピック配置_${ts}.png`; a.href = cvs.toDataURL('image/png'); a.click();
+      } catch (err) { alert('保存に失敗しました: ' + err.message); }
+    });
+
+    // ===== Init =====
+    function init() {
+      buildGridDOM();
+      const todayKey = getGameDayKey();
+      const saved = loadState();
+      if (saved && saved.dayKey === todayKey && Array.isArray(saved.picks) && saved.picks.length === 9) {
+        pickedDayKey = todayKey;
+        picks = saved.picks;
+        cellContent = saved.cellContent;
+        slotLocation = saved.slotLocation;
+        buildReelDOM(true);
+        updateAllCells();
+      } else {
+        pickedDayKey = null;
+        buildReelDOM(true);
+      }
+      applyLang(currentLang);
+      checkComplete();
+    }
+    init();
+  </script>
+
+  <div id="version-tag" data-html2canvas-ignore="true">v1</div>
+</body>
+</html>
