@@ -588,6 +588,7 @@
 
     boardGrid.addEventListener('pointerdown', e => {
       if (dragState) return;
+      if (e.target.closest('.qcell-note')) return;
       const cell = e.target.closest('.qcell.filled');
       if (!cell) return;
       const idx = parseInt(cell.dataset.idx, 10);
