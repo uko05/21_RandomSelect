@@ -153,6 +153,17 @@
     }
     .qcell-img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; touch-action: none; }
     .qcell-placeholder { font-size: .65rem; color: var(--muted); padding: 0 10px; text-align: center; }
+    .qcell-note, .qcell-note-proxy {
+      width: 100%; height: 40px; box-sizing: border-box; margin-top: 2px;
+      border: 1px solid var(--border); border-radius: 4px; padding: 3px 5px;
+      font-family: var(--font); font-size: .65rem; line-height: 1.4; color: var(--text);
+      resize: none; background: #fff;
+    }
+    .qcell-note-proxy {
+      display: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden;
+    }
+    #board-card.is-printing .qcell-note { display: none; }
+    #board-card.is-printing .qcell-note-proxy { display: block; }
 
     /* ===== Drag ghost ===== */
     #drag-ghost { position: fixed; pointer-events: none; z-index: 9999; display: none; transform: translate(-28px,-28px); }
@@ -277,6 +288,7 @@
         dropHere: 'ここに配置', placedGhost: '配置済み',
         lockedMsg: '本日の抽選は終了しました。次回抽選可能: {time}',
         username: 'ユーザー名：', namePlaceholder: 'あなたの名前を書いてね！',
+        notePlaceholder: 'コメント（任意）',
       },
       en: {
         title: '#Random Pick Sheet',
@@ -286,6 +298,7 @@
         dropHere: 'Drop here', placedGhost: 'Placed',
         lockedMsg: "Today's draw is done. Next draw available: {time}",
         username: 'Name:', namePlaceholder: 'Write your name!',
+        notePlaceholder: 'Comment (optional)',
       },
     };
     let currentLang = localStorage.getItem('lang') || 'ja';
@@ -302,6 +315,7 @@
       document.querySelectorAll('.qcell-placeholder').forEach(el => el.textContent = d.dropHere);
       document.querySelectorAll('.placed-ghost').forEach(el => el.textContent = d.placedGhost);
       playerNameInput.placeholder = d.namePlaceholder;
+      document.querySelectorAll('.qcell-note').forEach(el => el.placeholder = d.notePlaceholder);
       updateQuestionLabels();
       updatePickUI();
     }
@@ -348,6 +362,7 @@
     let picks = [];                       // [{key,src,name}] x9, index = home slot
     let cellContent = Array(9).fill(null); // cellContent[cellIdx] = homeIdx | null
     let slotLocation = Array(9).fill('reel'); // slotLocation[homeIdx] = 'reel' | cellIdx
+    let notes = Array(9).fill(''); // notes[cellIdx] = free text, 2 lines max
     let pickedDayKey = null;
     let dragState = null;
     let slotEls = [], cellEls = [];
@@ -372,7 +387,7 @@
     function isDebugMode() { return playerNameInput.value.trim() === DEBUG_NAME; }
 
     function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayKey: pickedDayKey, picks, cellContent, slotLocation }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayKey: pickedDayKey, picks, cellContent, slotLocation, notes }));
     }
     function loadState() {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
@@ -392,9 +407,20 @@
             <img class="qcell-img" style="display:none" alt="">
             <span class="qcell-placeholder"></span>
           </div>
+          <textarea class="qcell-note" maxlength="120"></textarea>
+          <div class="qcell-note-proxy" aria-hidden="true"></div>
         `;
         boardGrid.appendChild(cell);
         cellEls.push(cell);
+
+        const noteEl = cell.querySelector('.qcell-note');
+        noteEl.value = notes[i] || '';
+        noteEl.addEventListener('input', () => {
+          const lines = noteEl.value.split('\n');
+          if (lines.length > 2) noteEl.value = lines.slice(0, 2).join('\n');
+          notes[i] = noteEl.value;
+          saveState();
+        });
       }
       updateQuestionLabels();
       const d = i18n[currentLang] || i18n.ja;
@@ -577,6 +603,7 @@
         picks = shuffle(buildPool(mode)).slice(0, 9);
         cellContent = Array(9).fill(null);
         slotLocation = Array(9).fill('reel');
+        notes = Array(9).fill('');
         pickedDayKey = getGameDayKey();
         saveState();
         updatePickUI();
@@ -607,6 +634,10 @@
     saveBtn.addEventListener('click', async () => {
       if (saveBtn.disabled) return;
       const boardCard = document.getElementById('board-card');
+      cellEls.forEach(c => {
+        const proxy = c.querySelector('.qcell-note-proxy');
+        proxy.textContent = c.querySelector('.qcell-note').value;
+      });
       boardCard.classList.add('is-printing');
       await document.fonts.ready;
       try {
@@ -633,7 +664,6 @@
 
     // ===== Init =====
     function init() {
-      buildGridDOM();
       const todayKey = getGameDayKey();
       const saved = loadState();
       if (saved && saved.dayKey === todayKey && Array.isArray(saved.picks) && saved.picks.length === 9) {
@@ -641,12 +671,13 @@
         picks = saved.picks;
         cellContent = saved.cellContent;
         slotLocation = saved.slotLocation;
-        buildReelDOM(true);
-        updateAllCells();
+        notes = Array.isArray(saved.notes) ? saved.notes : Array(9).fill('');
       } else {
         pickedDayKey = null;
-        buildReelDOM(true);
       }
+      buildGridDOM();
+      buildReelDOM(true);
+      if (picks.length === 9) updateAllCells();
       applyLang(currentLang);
       checkComplete();
     }
