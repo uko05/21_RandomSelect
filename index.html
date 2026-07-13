@@ -36,13 +36,13 @@
       flex-direction: column;
     }
 
-    /* ===== Header ===== */
+    /* ===== Top fixed area (header through character reel stay pinned while the sheet scrolls) ===== */
+    #top-fixed {
+      position: sticky; top: 0; z-index: 200; background: var(--surface);
+    }
     header {
       background: var(--surface);
       border-bottom: 2px solid var(--accent);
-      position: sticky;
-      top: 0;
-      z-index: 200;
     }
     .header-top {
       min-height: 56px;
@@ -58,7 +58,7 @@
       display: flex; gap: 8px; font-size: .8rem;
     }
     .lang-switch label { display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
-    #save-row { text-align: center; padding: 12px 0; background: var(--bg); }
+    #save-row { text-align: center; padding: 10px 0 0; background: var(--bg); }
     #save-btn {
       background: var(--accent); border: none; border-radius: 6px;
       padding: 7px 20px; font-family: var(--font); font-size: .9rem; font-weight: bold;
@@ -99,13 +99,9 @@
       position: absolute; inset: 0; backface-visibility: hidden; border-radius: 6px;
       display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    .flip-front { background: linear-gradient(135deg, var(--accent), #ffe9a3); font-size: 1.8rem; font-weight: bold; color: #fff; }
+    .flip-front { background: var(--surface2); border: 1px solid var(--border); }
     .flip-back { transform: rotateY(180deg); background: var(--surface2); }
     .flip-back img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-    .pick-slot-name {
-      font-size: .5rem; color: var(--muted); max-width: 84px; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-    }
     .pick-slot:not(.placed) .flip-card.flipped { cursor: grab; }
     .placed-ghost {
       display: none; position: absolute; inset: 0; border: 2px dashed var(--border); border-radius: 6px;
@@ -113,10 +109,9 @@
     }
     .pick-slot.placed .flip-inner > .flip-card { visibility: hidden; }
     .pick-slot.placed .placed-ghost { display: flex; }
-    .pick-slot.placed .pick-slot-name { visibility: hidden; }
 
     /* ===== Board ===== */
-    #canvas-wrap { flex: 1; overflow: auto; background: var(--bg); padding: 24px; display: flex; justify-content: center; }
+    #canvas-wrap { flex: 1; overflow: auto; background: var(--bg); padding: 4px 24px 24px; display: flex; justify-content: center; }
     #board-card {
       background: var(--surface); border-radius: 10px; padding: 20px;
       display: flex; flex-direction: column; align-items: center; gap: 16px; width: max-content;
@@ -153,10 +148,6 @@
     }
     .qcell-img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; }
     .qcell-placeholder { font-size: .65rem; color: var(--muted); padding: 0 10px; text-align: center; }
-    .qcell-name {
-      font-size: .68rem; color: var(--muted); text-align: center; max-width: 190px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.1em;
-    }
 
     /* ===== Drag ghost ===== */
     #drag-ghost { position: fixed; pointer-events: none; z-index: 9999; display: none; transform: translate(-28px,-28px); }
@@ -187,26 +178,28 @@
 </head>
 <body>
 
-  <header id="main-header">
-    <div class="header-top">
-      <h1 id="site-title">#ランダムピック配置シート</h1>
-      <div class="lang-switch">
-        <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
-        <label><input type="radio" name="lang" value="en"> English</label>
+  <div id="top-fixed">
+    <header id="main-header">
+      <div class="header-top">
+        <h1 id="site-title">#ランダムピック配置シート</h1>
+        <div class="lang-switch">
+          <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
+          <label><input type="radio" name="lang" value="en"> English</label>
+        </div>
       </div>
+    </header>
+
+    <div class="pick-tab-bar">
+      <button class="pick-btn" data-mode="genshin"  data-i18n-key="pickGenshin">原神キャラのみピック</button>
+      <button class="pick-btn" data-mode="starrail" data-i18n-key="pickStarrail">スタレキャラのみピック</button>
+      <button class="pick-btn" data-mode="both"     data-i18n-key="pickBoth">原神・スタレ両方からピック</button>
     </div>
-  </header>
+    <div id="lock-message"></div>
 
-  <div class="pick-tab-bar">
-    <button class="pick-btn" data-mode="genshin"  data-i18n-key="pickGenshin">原神キャラのみピック</button>
-    <button class="pick-btn" data-mode="starrail" data-i18n-key="pickStarrail">スタレキャラのみピック</button>
-    <button class="pick-btn" data-mode="both"     data-i18n-key="pickBoth">原神・スタレ両方からピック</button>
-  </div>
-  <div id="lock-message"></div>
-
-  <div id="reel-wrap">
-    <div id="reel"></div>
-    <div id="reel-hint" data-i18n-key="readyMsg">ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)</div>
+    <div id="reel-wrap">
+      <div id="reel"></div>
+      <div id="reel-hint" data-i18n-key="readyMsg">ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)</div>
+    </div>
   </div>
 
   <div id="save-row">
@@ -382,7 +375,6 @@
             <img class="qcell-img" style="display:none" alt="">
             <span class="qcell-placeholder"></span>
           </div>
-          <div class="qcell-name"></div>
         `;
         boardGrid.appendChild(cell);
         cellEls.push(cell);
@@ -400,18 +392,15 @@
       const cell = cellEls[i];
       const homeIdx = cellContent[i];
       const img = cell.querySelector('.qcell-img');
-      const nameEl = cell.querySelector('.qcell-name');
       const ph = cell.querySelector('.qcell-placeholder');
       if (homeIdx != null) {
         const c = picks[homeIdx];
         img.src = c.src; img.alt = c.name; img.style.display = 'block';
         ph.style.display = 'none';
-        nameEl.textContent = c.name;
         cell.classList.add('filled');
       } else {
         img.style.display = 'none'; img.removeAttribute('src');
         ph.style.display = 'block';
-        nameEl.textContent = '';
         cell.classList.remove('filled');
       }
     }
@@ -430,12 +419,11 @@
         slot.innerHTML = `
           <div class="flip-inner">
             <div class="flip-card${instant ? ' flipped' : ''}">
-              <div class="flip-face flip-front">？</div>
+              <div class="flip-face flip-front"></div>
               <div class="flip-face flip-back"><img src="${c.src}" alt="${c.name}"></div>
             </div>
             <div class="placed-ghost"></div>
           </div>
-          <div class="pick-slot-name">${instant ? c.name : ''}</div>
         `;
         reelEl.appendChild(slot);
         slotEls.push(slot);
@@ -455,7 +443,6 @@
         const slot = slotEls[i];
         if (!slot) continue;
         slot.querySelector('.flip-card').classList.add('flipped');
-        slot.querySelector('.pick-slot-name').textContent = picks[i].name;
       }
     }
 
