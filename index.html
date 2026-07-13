@@ -196,8 +196,8 @@
 
     <div class="pick-tab-bar">
       <button class="pick-btn" data-mode="genshin"  data-i18n-key="pickGenshin">原神キャラのみピック</button>
-      <button class="pick-btn" data-mode="starrail" data-i18n-key="pickStarrail">スタレキャラのみピック</button>
       <button class="pick-btn" data-mode="both"     data-i18n-key="pickBoth">原神・スタレ両方からピック</button>
+      <button class="pick-btn" data-mode="starrail" data-i18n-key="pickStarrail">スタレキャラのみピック</button>
     </div>
     <div id="lock-message"></div>
 
@@ -246,14 +246,14 @@
     // ===== i18n =====
     const QUESTIONS = {
       ja: [
-        'Q1.始めた時期は？', 'Q2.好きなバージョンは？', 'Q3.推しキャラは？',
-        'Q4.髪型が似てるキャラは？', 'Q5.親友にするなら？', 'Q6.結婚するなら？',
-        'Q7.同じ声になれるなら？', 'Q8.１日入れ替わるなら？', 'Q9.着てみたいキャラの服装は？',
+        '①親友にするなら？', '②一緒に無人島に行くなら？', '③部活の先輩にするなら？',
+        '④兄か姉にするなら？', '⑤弟か妹にするなら？', '⑥大事なことを相談するなら？',
+        '⑦生徒会長にするなら？', '⑧一番モテそうなのは？', '⑨YouTuberやってそうなのは？',
       ],
       en: [
-        'Q1.When did you start?', 'Q2.Favorite version?', 'Q3.Favorite character?',
-        'Q4.Similar hairstyle?', 'Q5.Best friend?', 'Q6.Who would you marry?',
-        'Q7.Whose voice?', 'Q8.One-day body swap?', "Q9.Outfit you'd wear?",
+        '①Best friend?', '②Deserted island partner?', "③Your club's senior?",
+        '④Older sibling?', '⑤Younger sibling?', '⑥Who for important advice?',
+        '⑦Student council president?', '⑧Most popular?', '⑨Most likely to be a YouTuber?',
       ],
     };
     const i18n = {
@@ -640,6 +640,8 @@
     }
     init();
   </script>
+
+  <script src="https://uko05.github.io/TopPage00/shared/sidebar.js"></script>
 
   <div id="version-tag" data-html2canvas-ignore="true">v1</div>
 </body>
