@@ -378,10 +378,13 @@
     const playerNameInput = document.getElementById('player-name');
 
     const DEBUG_NAME = 'uko@debug';
-    const NAME_STORAGE_KEY = 'randomSelect_playerName';
-    playerNameInput.value = localStorage.getItem(NAME_STORAGE_KEY) || '';
+    const NAME_STORAGE_KEY = 'randomSelect_playerName_v2'; // { dayKey, name } — cleared once the game day rolls over (4:00 AM)
+    try {
+      const savedName = JSON.parse(localStorage.getItem(NAME_STORAGE_KEY));
+      if (savedName && savedName.dayKey === getGameDayKey()) playerNameInput.value = savedName.name || '';
+    } catch {}
     playerNameInput.addEventListener('input', () => {
-      localStorage.setItem(NAME_STORAGE_KEY, playerNameInput.value);
+      localStorage.setItem(NAME_STORAGE_KEY, JSON.stringify({ dayKey: getGameDayKey(), name: playerNameInput.value }));
       updatePickUI();
     });
     function isDebugMode() { return playerNameInput.value.trim() === DEBUG_NAME; }
