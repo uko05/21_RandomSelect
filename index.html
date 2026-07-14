@@ -84,13 +84,28 @@
     #lock-message { text-align: center; font-size: .78rem; color: var(--muted); padding: 6px 12px; background: var(--surface); }
 
     /* ===== Reel ===== */
-    #reel-wrap { padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    #reel-wrap { position: relative; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
     #reel {
       display: flex; justify-content: center; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 4px;
       scrollbar-width: none; min-height: 112px;
     }
     #reel::-webkit-scrollbar { display: none; }
     #reel-hint { text-align: center; color: var(--muted); font-size: .8rem; padding: 30px 8px; width: 100%; }
+
+    /* Step buttons to move through the reel — placed items have touch-action:none
+       (needed so a touch-drag always starts our own placement drag instead of the
+       page/list stealing it as a scroll), which as a side effect blocks native
+       swipe-to-scroll on the reel too. These buttons are the reliable way to move
+       through the 9 cards on a touch screen. */
+    .reel-nav-btn {
+      display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 20;
+      width: 32px; height: 64px; border: none; border-radius: 6px;
+      background: rgba(0,0,0,.45); color: #fff; font-size: 1.1rem; line-height: 1;
+      cursor: pointer; align-items: center; justify-content: center; user-select: none;
+    }
+    .reel-nav-btn:hover { background: rgba(0,0,0,.62); }
+    #reel-prev { left: 4px; }
+    #reel-next { right: 4px; }
 
     .pick-slot { width: 94px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; touch-action: none; }
     .flip-inner { width: 90px; height: 90px; position: relative; perspective: 700px; }
@@ -184,10 +199,16 @@
 
     @media (max-width: 768px) {
       /* Reserve space on the left so the hamburger button (fixed, top:8px/left:12px,
-         40px wide, injected by sidebar.js) never overlaps the centered title. */
-      .header-top { padding-left: 56px; }
+         40px wide, injected by sidebar.js) never overlaps the title. Stack the title
+         and language switch instead of overlaying them — at this width there isn't
+         enough room to center the title next to an absolutely-positioned switch
+         without the two colliding. */
+      .header-top {
+        flex-direction: column; justify-content: center; gap: 3px;
+        padding: 6px 12px 6px 56px; min-height: 0;
+      }
       .header-top h1 { font-size: .68rem; }
-      .lang-switch { font-size: .68rem; gap: 5px; }
+      .lang-switch { position: static; transform: none; font-size: .68rem; gap: 5px; }
 
       .pick-tab-bar { padding: 8px 10px; gap: 5px; }
       .pick-btn { font-size: .62rem; padding: 10px 3px; }
@@ -225,7 +246,9 @@
     <div id="lock-message"></div>
 
     <div id="reel-wrap">
+      <button id="reel-prev" class="reel-nav-btn" aria-label="prev" data-html2canvas-ignore="true">◀</button>
       <div id="reel"></div>
+      <button id="reel-next" class="reel-nav-btn" aria-label="next" data-html2canvas-ignore="true">▶</button>
       <div id="reel-hint" data-i18n-key="readyMsg">ボタンを押してキャラをランダム抽選しよう！(1日1回・AM4:00更新)</div>
     </div>
   </div>
@@ -369,6 +392,8 @@
 
     const reelEl      = document.getElementById('reel');
     const reelHintEl  = document.getElementById('reel-hint');
+    const reelPrevBtn = document.getElementById('reel-prev');
+    const reelNextBtn = document.getElementById('reel-next');
     const boardGrid   = document.getElementById('board-grid');
     const lockMsgEl   = document.getElementById('lock-message');
     const saveBtn     = document.getElementById('save-btn');
@@ -456,8 +481,15 @@
     function buildReelDOM(instant) {
       reelEl.innerHTML = '';
       slotEls = [];
-      if (picks.length !== 9) { reelHintEl.style.display = 'block'; return; }
+      if (picks.length !== 9) {
+        reelHintEl.style.display = 'block';
+        reelPrevBtn.style.display = 'none';
+        reelNextBtn.style.display = 'none';
+        return;
+      }
       reelHintEl.style.display = 'none';
+      reelPrevBtn.style.display = 'flex';
+      reelNextBtn.style.display = 'flex';
       picks.forEach((c, i) => {
         const slot = document.createElement('div');
         slot.className = 'pick-slot';
@@ -578,6 +610,13 @@
       document.addEventListener('pointermove', onMove, { passive: false });
       document.addEventListener('pointerup', onUp);
     }
+
+    function getReelStep() {
+      const slot = reelEl.querySelector('.pick-slot');
+      return slot ? slot.offsetWidth + 8 : 100;
+    }
+    reelPrevBtn.addEventListener('click', () => reelEl.scrollBy({ left: -getReelStep(), behavior: 'smooth' }));
+    reelNextBtn.addEventListener('click', () => reelEl.scrollBy({ left: getReelStep(), behavior: 'smooth' }));
 
     reelEl.addEventListener('pointerdown', e => {
       if (dragState) return;
