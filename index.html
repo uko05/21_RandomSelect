@@ -86,7 +86,7 @@
     /* ===== Reel ===== */
     #reel-wrap { position: relative; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
     #reel {
-      display: flex; justify-content: center; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 4px;
+      display: flex; align-items: center; justify-content: center; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 4px;
       scrollbar-width: none; min-height: 112px;
     }
     #reel::-webkit-scrollbar { display: none; }
@@ -277,6 +277,7 @@
     <a href="https://t.co/0jAcAV2GJv" target="_blank" rel="noopener" class="sns-link">
       <img src="https://cdn.jsdelivr.net/gh/uko05/99_SharedImage@main/00_common/footer_icon/discord_image.png" alt="Discord">
     </a>
+    <span id="uko-account-status-slot"></span>
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -388,7 +389,13 @@
     let notes = Array(9).fill(''); // notes[cellIdx] = free text, 2 lines max
     let pickedDayKey = null;
     let dragState = null;
-    let slotEls = [], cellEls = [];
+    let cellEls = [];
+    // Copies + boundary-jump on scroll = looks like an endless rotating reel.
+    // Needs enough copies that the "safe band" we jump within (2x one copy's
+    // width) comfortably exceeds the viewport — a 9-card reel's single copy
+    // can be narrower than a wide desktop window, so a small copy count runs
+    // out of room and hits the real end of the scroll track.
+    const REEL_COPIES = 9;
 
     const reelEl      = document.getElementById('reel');
     const reelHintEl  = document.getElementById('reel-hint');
@@ -479,8 +486,9 @@
 
     // ===== Reel =====
     function buildReelDOM(instant) {
+      stopAutoScroll();
       reelEl.innerHTML = '';
-      slotEls = [];
+      reelEl._singleCopyW = null;
       if (picks.length !== 9) {
         reelHintEl.style.display = 'block';
         reelPrevBtn.style.display = 'none';
@@ -490,37 +498,57 @@
       reelHintEl.style.display = 'none';
       reelPrevBtn.style.display = 'flex';
       reelNextBtn.style.display = 'flex';
-      picks.forEach((c, i) => {
-        const slot = document.createElement('div');
-        slot.className = 'pick-slot';
-        slot.dataset.idx = i;
-        slot.innerHTML = `
-          <div class="flip-inner">
-            <div class="flip-card${instant ? ' flipped' : ''}">
-              <div class="flip-face flip-front"></div>
-              <div class="flip-face flip-back"><img src="${c.src}" alt="${c.name}"></div>
+      for (let copy = 0; copy < REEL_COPIES; copy++) {
+        picks.forEach((c, i) => {
+          const slot = document.createElement('div');
+          slot.className = 'pick-slot';
+          slot.dataset.idx = i;
+          slot.innerHTML = `
+            <div class="flip-inner">
+              <div class="flip-card${instant ? ' flipped' : ''}">
+                <div class="flip-face flip-front"></div>
+                <div class="flip-face flip-back"><img src="${c.src}" alt="${c.name}"></div>
+              </div>
+              <div class="placed-ghost"></div>
             </div>
-            <div class="placed-ghost"></div>
-          </div>
-        `;
-        reelEl.appendChild(slot);
-        slotEls.push(slot);
-      });
+          `;
+          reelEl.appendChild(slot);
+        });
+      }
       const d = i18n[currentLang] || i18n.ja;
       reelEl.querySelectorAll('.placed-ghost').forEach(el => el.textContent = d.placedGhost);
       updateAllReelSlots();
+      // Start on the middle copy so there's a large, fixed buffer of copies
+      // on either side before the boundary-jump (below) needs to kick in.
+      requestAnimationFrame(() => {
+        const sw = reelEl.scrollWidth / REEL_COPIES;
+        reelEl._singleCopyW = sw;
+        reelEl._midScroll = sw * Math.floor(REEL_COPIES / 2);
+        reelEl.scrollLeft = reelEl._midScroll;
+      });
     }
     function updateReelSlot(i) {
-      slotEls[i]?.classList.toggle('placed', slotLocation[i] !== 'reel');
+      const placed = slotLocation[i] !== 'reel';
+      reelEl.querySelectorAll(`.pick-slot[data-idx="${i}"]`).forEach(el => el.classList.toggle('placed', placed));
     }
     function updateAllReelSlots() { for (let i = 0; i < 9; i++) updateReelSlot(i); }
+
+    // Endless-rotation illusion: keep scrollLeft within a fixed band around
+    // the middle copy; once it strays outside, silently jump by exactly one
+    // copy-width (copies are identical so the jump is invisible). The band
+    // is anchored to a constant center rather than a percentage of one copy,
+    // so it stays correct regardless of viewport width vs. copy width.
+    reelEl.addEventListener('scroll', () => {
+      const sw = reelEl._singleCopyW, mid = reelEl._midScroll;
+      if (!sw) return;
+      if (reelEl.scrollLeft < mid - sw) reelEl.scrollLeft += sw;
+      else if (reelEl.scrollLeft > mid + sw) reelEl.scrollLeft -= sw;
+    }, { passive: true });
 
     async function revealAnimation() {
       for (let i = 0; i < 9; i++) {
         await delay(560);
-        const slot = slotEls[i];
-        if (!slot) continue;
-        slot.querySelector('.flip-card').classList.add('flipped');
+        reelEl.querySelectorAll(`.pick-slot[data-idx="${i}"] .flip-card`).forEach(el => el.classList.add('flipped'));
       }
     }
 
@@ -615,8 +643,42 @@
       const slot = reelEl.querySelector('.pick-slot');
       return slot ? slot.offsetWidth + 8 : 100;
     }
-    reelPrevBtn.addEventListener('click', () => reelEl.scrollBy({ left: -getReelStep(), behavior: 'smooth' }));
-    reelNextBtn.addEventListener('click', () => reelEl.scrollBy({ left: getReelStep(), behavior: 'smooth' }));
+
+    // Tap = jump one card. Press-and-hold = keep sliding continuously until released.
+    let autoScrollTimer = null;
+    function startAutoScroll(dir) {
+      stopAutoScroll();
+      autoScrollTimer = setInterval(() => { reelEl.scrollLeft += dir * 5; }, 16);
+    }
+    function stopAutoScroll() {
+      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+    }
+    const TAP_MAX_MS = 180;
+    function bindReelNav(btn, dir) {
+      let downAt = 0;
+      btn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        try { btn.setPointerCapture(e.pointerId); } catch {}
+        downAt = Date.now();
+        startAutoScroll(dir); // starts immediately so a real hold never waits on a timer race
+      });
+      const release = () => {
+        if (!downAt) return;
+        const held = Date.now() - downAt;
+        downAt = 0;
+        stopAutoScroll();
+        if (held < TAP_MAX_MS) reelEl.scrollBy({ left: dir * getReelStep(), behavior: 'smooth' });
+      };
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+    }
+    bindReelNav(reelPrevBtn, -1);
+    bindReelNav(reelNextBtn, 1);
+    // Safety net: if the pointerup/cancel never reaches the button (e.g. the
+    // finger slides off before lifting on a device where capture didn't take),
+    // never leave the reel auto-scrolling forever.
+    document.addEventListener('pointerup', stopAutoScroll);
+    document.addEventListener('pointercancel', stopAutoScroll);
 
     reelEl.addEventListener('pointerdown', e => {
       if (dragState) return;
@@ -728,6 +790,7 @@
   </script>
 
   <script src="https://uko05.github.io/TopPage00/shared/sidebar.js"></script>
+  <script type="module" src="https://uko05.github.io/24_AccountCenter/account-status.js"></script>
 
   <div id="version-tag" data-html2canvas-ignore="true">v1</div>
 </body>
