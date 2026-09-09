@@ -918,7 +918,7 @@
         // アカウント登録者ならクラウドにも保存(失敗しても無視、ローカル保存は継続)
         cvs.toBlob((blob) => {
           if (blob) saveProfileImage(SITE_ID, blob).then(() => refreshSavedImageUI());
-        }, 'image/png');
+        }, 'image/jpeg', 0.92);
       } catch (err) { alert('保存に失敗しました: ' + err.message); }
       finally { boardCard.classList.remove('is-printing'); }
     });
